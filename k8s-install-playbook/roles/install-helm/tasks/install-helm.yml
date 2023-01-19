@@ -2,22 +2,17 @@
   shell: snap install helm --classic
   register: helm_result
 
-- name: Helm init
-  shell: helm init
-  register: helm_init_result
+- name: Add prometheus helm repo
+  shell: helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
 
-- name: Create service account to tiller
-  shell: kubectl create serviceaccount --namespace=kube-system tiller
-  register: tiller_result
+- name: Add Helm repo stable
+  shell: helm repo add stable https://charts.helm.sh/stable
 
-- name: Create clusterrolebinding for tiller
-  shell: kubectl create clusterrolebinding tiller-cluster-role --clusterrole=cluster-admin --serviceaccount=kube-system:tiller
-  register: clusterrolebinding_result
+- name: Add grafana helm repo
+  shell: helm repo add grafana https://grafana.github.io/helm-charts
 
-- name: Apply patch to tiller-deploy
-  shell: kubectl patch deployments -n kube-system tiller-deploy -p '{"spec":{"template":{"spec":{"serviceAccount":"tiller"}}}}'
-  register: patch_result
+- name: Helm update
+  shell: helm repo update
 
-- name: Waiting tiller pod 
-  pause:
-    minutes: 2
+- name: Create monitoring namespace
+  shell: kubectl create ns monitoring

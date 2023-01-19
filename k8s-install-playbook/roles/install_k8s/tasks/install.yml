@@ -1,22 +1,82 @@
-- name: Install Docker
-  shell: curl -fsSL https://get.docker.com | bash -
+- name: Kernel modules
+  ansible.builtin.copy:
+    src: ../files/k8s.conf
+    dest: /etc/modules-load.d/k8s.conf
+    mode: '644'
+- name: overlay
+  modprobe:
+    name: overlay
+    state: present
+- name: br_netfilter
+  modprobe:
+    name: br_netfilter
+    state: present
 
-- name: Add Apt signing key
+- name: Sysctl parameters
+  ansible.builtin.copy:
+    src: ../files/k8s-cri.conf
+    dest: /etc/sysctl.d/k8s.conf
+    mode: '644'
+
+- name: sysctl command
+  command: "sysctl --system"
+
+- name: Add Containerd Apt signing key
+  apt_key:
+    url: https://download.docker.com/linux/ubuntu/gpg
+    state: present
+
+- name: Containerd Repository
+  apt_repository:
+    repo: deb https://download.docker.com/linux/ubuntu bionic stable
+    state: present
+
+- name: Install Containerd
+  apt:
+    name: containerd.io=1.6.12-1
+    update_cache: yes
+
+- name: Create Containerd directory
+  file:
+    path: /etc/condainerd
+    state: directory
+    owner: root
+    group: root
+    mode: 0755
+
+- name: Create config file
+  shell: containerd config default > /etc/containerd/config.toml
+
+- name: Update config file
+  command: sed -i 's/SystemdCgroup = false/SystemdCgroup = true/g' /etc/containerd/config.toml
+
+- name: Restart Containerd
+  ansible.builtin.service:
+    name: containerd
+    state: restarted
+
+- name: Install packages
+  apt:
+    pkg:
+    - apt-transport-https
+    - ca-certificates
+    - curl
+    state: present
+
+- name: K8S Apt repository key
   apt_key:
     url: https://packages.cloud.google.com/apt/doc/apt-key.gpg
     state: present
 
-- name: Add K8s repository
+- name: K8S repository
   apt_repository:
-    repo: deb http://apt.kubernetes.io/ kubernetes-xenial main
+    repo: deb https://apt.kubernetes.io/ kubernetes-xenial main
     state: present
 
-- name: Install k8s packages
+- name: Install kubelet, kubeadm and kubectl
   apt:
-    name: "{{ packages }}"
-  vars:
-    packages:
-    - kubelet
-    - kubeadm
-    - kubectl
-
+    pkg:
+    - kubectl=1.26.0-00
+    - kubeadm=1.26.0-00
+    - kubelet=1.26.0-00
+    state: present
